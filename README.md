@@ -1,2 +1,3 @@
 # gtac_hashing
-Hashing Module for GTA Connected
+
+Hashing module for GTA Connected
