@@ -1,5 +1,5 @@
-
 #include "pch.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <GalacticInterfaces.h>
@@ -25,12 +25,8 @@ typedef unsigned char byte;
 // The modules internal name (Also used for the namespace name)
 MODULE_MAIN("hashing");
 
-SDK::Class g_ConnectionClass;
-SDK::Class g_ResultClass;
-
 void ModuleRegister()
 {
-
 	SDK::RegisterFunction("encodeBase64", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
@@ -50,7 +46,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});
 
-	g_ConnectionClass.RegisterFunction("decodeBase64", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("decodeBase64", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -69,7 +65,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});
 	
-	g_ConnectionClass.RegisterFunction("md5", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("md5", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -98,7 +94,7 @@ void ModuleRegister()
 	});	
 
 	
-	g_ConnectionClass.RegisterFunction("sha1", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("sha1", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -126,7 +122,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});	
 			
-	g_ConnectionClass.RegisterFunction("sha224", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("sha224", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -154,7 +150,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});	
 	
-	g_ConnectionClass.RegisterFunction("sha256", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("sha256", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -182,7 +178,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});	
 
-	g_ConnectionClass.RegisterFunction("sha384", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("sha384", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -210,7 +206,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});	
 
-	g_ConnectionClass.RegisterFunction("sha512", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("sha512", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -238,7 +234,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});	
 
-	g_ConnectionClass.RegisterFunction("ripemd128", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("ripemd128", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -266,7 +262,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});		
 
-	g_ConnectionClass.RegisterFunction("ripemd160", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("ripemd160", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -294,7 +290,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});		
 	
-	g_ConnectionClass.RegisterFunction("ripemd256", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("ripemd256", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -322,7 +318,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});		
 	
-	g_ConnectionClass.RegisterFunction("ripemd320", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("ripemd320", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
@@ -350,7 +346,7 @@ void ModuleRegister()
 		SDK_ENDTRY;
 	});		
 	
-	g_ConnectionClass.RegisterFunction("whirlpool", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
+	SDK::RegisterFunction("whirlpool", [](Galactic3D::Interfaces::INativeState* pState, int32_t argc, void* pUser) {
 		SDK_TRY;
 
 		SDK::State State(pState);
