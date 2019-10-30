@@ -3,7 +3,7 @@
 /// \file cryptlib.h
 /// \brief Abstract base classes that provide a uniform interface to this library.
 
-/*!	\mainpage Crypto++ Library 8.2 API Reference
+/*!	\mainpage Crypto++ Library 8.3 API Reference
 <dl>
 <dt>Abstract Base Classes<dd>
 	cryptlib.h
@@ -202,6 +202,9 @@ private:
 class CRYPTOPP_DLL InvalidArgument : public Exception
 {
 public:
+	/// \brief Construct an InvalidArgument
+	/// \param s the message for the exception
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	explicit InvalidArgument(const std::string &s) : Exception(INVALID_ARGUMENT, s) {}
 };
 
@@ -209,6 +212,9 @@ public:
 class CRYPTOPP_DLL InvalidDataFormat : public Exception
 {
 public:
+	/// \brief Construct an InvalidDataFormat
+	/// \param s the message for the exception
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	explicit InvalidDataFormat(const std::string &s) : Exception(INVALID_DATA_FORMAT, s) {}
 };
 
@@ -216,6 +222,9 @@ public:
 class CRYPTOPP_DLL InvalidCiphertext : public InvalidDataFormat
 {
 public:
+	/// \brief Construct an InvalidCiphertext
+	/// \param s the message for the exception
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	explicit InvalidCiphertext(const std::string &s) : InvalidDataFormat(s) {}
 };
 
@@ -223,6 +232,9 @@ public:
 class CRYPTOPP_DLL NotImplemented : public Exception
 {
 public:
+	/// \brief Construct an NotImplemented
+	/// \param s the message for the exception
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	explicit NotImplemented(const std::string &s) : Exception(NOT_IMPLEMENTED, s) {}
 };
 
@@ -230,6 +242,9 @@ public:
 class CRYPTOPP_DLL CannotFlush : public Exception
 {
 public:
+	/// \brief Construct an CannotFlush
+	/// \param s the message for the exception
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	explicit CannotFlush(const std::string &s) : Exception(CANNOT_FLUSH, s) {}
 };
 
@@ -238,6 +253,13 @@ class CRYPTOPP_DLL OS_Error : public Exception
 {
 public:
 	virtual ~OS_Error() throw() {}
+
+	/// \brief Construct an OS_Error
+	/// \param errorType the error type
+	/// \param s the message for the exception
+	/// \param operation the operation for the exception
+	/// \param errorCode the error code
+	/// \details The member function <tt>what()</tt> returns <tt>s</tt>.
 	OS_Error(ErrorType errorType, const std::string &s, const std::string& operation, int errorCode)
 		: Exception(errorType, s), m_operation(operation), m_errorCode(errorCode) {}
 
@@ -255,7 +277,8 @@ protected:
 struct CRYPTOPP_DLL DecodingResult
 {
 	/// \brief Constructs a DecodingResult
-	/// \details isValidCoding is initialized to false and messageLength is initialized to 0.
+	/// \details isValidCoding is initialized to false and messageLength is
+	///  initialized to 0.
 	explicit DecodingResult() : isValidCoding(false), messageLength(0) {}
 	/// \brief Constructs a DecodingResult
 	/// \param len the message length
@@ -264,11 +287,13 @@ struct CRYPTOPP_DLL DecodingResult
 
 	/// \brief Compare two DecodingResult
 	/// \param rhs the other DecodingResult
-	/// \return true if both isValidCoding and messageLength are equal, false otherwise
+	/// \return true if either isValidCoding or messageLength is \a not equal,
+	///  false otherwise
 	bool operator==(const DecodingResult &rhs) const {return isValidCoding == rhs.isValidCoding && messageLength == rhs.messageLength;}
 	/// \brief Compare two DecodingResult
 	/// \param rhs the other DecodingResult
-	/// \return true if either isValidCoding or messageLength is \a not equal, false otherwise
+	/// \return true if either isValidCoding or messageLength is \a not equal,
+	///  false otherwise
 	/// \details Returns <tt>!operator==(rhs)</tt>.
 	bool operator!=(const DecodingResult &rhs) const {return !operator==(rhs);}
 
@@ -279,24 +304,28 @@ struct CRYPTOPP_DLL DecodingResult
 };
 
 /// \brief Interface for retrieving values given their names
-/// \details This class is used to safely pass a variable number of arbitrarily typed arguments to functions
-///   and to read values from keys and crypto parameters.
-/// \details To obtain an object that implements NameValuePairs for the purpose of parameter
-///   passing, use the MakeParameters() function.
-/// \details To get a value from NameValuePairs, you need to know the name and the type of the value.
-///   Call GetValueNames() on a NameValuePairs object to obtain a list of value names that it supports.
-///   then look at the Name namespace documentation to see what the type of each value is, or
-///   alternatively, call GetIntValue() with the value name, and if the type is not int, a
-///   ValueTypeMismatch exception will be thrown and you can get the actual type from the exception object.
+/// \details This class is used to safely pass a variable number of arbitrarily
+///  typed arguments to functions and to read values from keys and crypto parameters.
+/// \details To obtain an object that implements NameValuePairs for the purpose of
+///  parameter passing, use the MakeParameters() function.
+/// \details To get a value from NameValuePairs, you need to know the name and the
+///  type of the value. Call GetValueNames() on a NameValuePairs object to obtain a
+///  list of value names that it supports. then look at the Name namespace
+///  documentation to see what the type of each value is, or alternatively, call
+///  GetIntValue() with the value name, and if the type is not int, a
+///  ValueTypeMismatch exception will be thrown and you can get the actual type from
+///  the exception object.
 /// \sa NullNameValuePairs, g_nullNameValuePairs,
-///   <A HREF="http://www.cryptopp.com/wiki/NameValuePairs">NameValuePairs</A> on the Crypto++ wiki
+///  <A HREF="http://www.cryptopp.com/wiki/NameValuePairs">NameValuePairs</A> on the
+///  Crypto++ wiki
 class NameValuePairs
 {
 public:
 	virtual ~NameValuePairs() {}
 
 	/// \brief Thrown when an unexpected type is encountered
-	/// \details Exception thrown when trying to retrieve a value using a different type than expected
+	/// \details Exception thrown when trying to retrieve a value using a different
+	///  type than expected
 	class CRYPTOPP_DLL ValueTypeMismatch : public InvalidArgument
 	{
 	public:
@@ -1380,6 +1409,8 @@ protected:
 ///   to hardware based generators.
 /// \details All generated values are uniformly distributed over the range specified.
 /// \since Crypto++ 3.1
+/// \sa <A HREF="https://www.cryptopp.com/wiki/RandomNumberGenerator">RandomNumberGenerator</A>
+///  on the Crypto++ wiki
 class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE RandomNumberGenerator : public Algorithm
 {
 public:
@@ -1466,6 +1497,8 @@ public:
 
 /// \brief Interface for key derivation functions
 /// \since Crypto++ 7.0
+/// \sa <A HREF="https://www.cryptopp.com/wiki/KeyDerivationFunction">KeyDerivationFunction</A>
+///  on the Crypto++ wiki
 class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE KeyDerivationFunction : public Algorithm
 {
 public:
@@ -1477,11 +1510,11 @@ public:
 
 	/// \brief Determine minimum number of bytes
 	/// \returns Minimum number of bytes which can be derived
-	virtual size_t MinDerivedLength() const;
+	virtual size_t MinDerivedKeyLength() const;
 
 	/// \brief Determine maximum number of bytes
 	/// \returns Maximum number of bytes which can be derived
-	virtual size_t MaxDerivedLength() const;
+	virtual size_t MaxDerivedKeyLength() const;
 
 	/// \brief Returns a valid key length for the derivation function
 	/// \param keylength the size of the derived key, in bytes
@@ -1503,7 +1536,7 @@ public:
 	/// \param secretLen the size of the secret buffer, in bytes
 	/// \param params additional initialization parameters to configure this object
 	/// \returns the number of iterations performed
-	/// \throws InvalidDerivedLength if <tt>derivedLen</tt> is invalid for the scheme
+	/// \throws InvalidDerivedKeyLength if <tt>derivedLen</tt> is invalid for the scheme
 	/// \details DeriveKey() provides a standard interface to derive a key from
 	///   a secret seed and other parameters. Each class that derives from KeyDerivationFunction
 	///   provides an overload that accepts most parameters used by the derivation function.
@@ -1525,7 +1558,7 @@ protected:
 	/// \brief Validates the derived key length
 	/// \param length the size of the derived key material, in bytes
 	/// \throws InvalidKeyLength if the key length is invalid
-	void ThrowIfInvalidDerivedLength(size_t length) const;
+	void ThrowIfInvalidDerivedKeyLength(size_t length) const;
 };
 
 /// \brief Interface for password based key derivation functions
@@ -1614,8 +1647,8 @@ public:
 		/// \brief Input a byte for processing
 		/// \param inByte the 8-bit byte (octet) to be processed.
 		/// \param blocking specifies whether the object should block when processing input.
-		/// \return the number of bytes that remain in the block (i.e., bytes not processed). 0 indicates all
-		///   bytes were processed.
+		/// \return the number of bytes that remain in the block (i.e., bytes not processed).
+		///   0 indicates all bytes were processed.
 		/// \details <tt>Put(byte)</tt> calls <tt>Put(byte*, size_t)</tt>.
 		size_t Put(byte inByte, bool blocking=true)
 			{return Put(&inByte, 1, blocking);}
@@ -1624,8 +1657,8 @@ public:
 		/// \param inString the byte buffer to process
 		/// \param length the size of the string, in bytes
 		/// \param blocking specifies whether the object should block when processing input
-		/// \return the number of bytes that remain in the block (i.e., bytes not processed). 0 indicates all
-		///   bytes were processed.
+		/// \return the number of bytes that remain in the block (i.e., bytes not processed).
+		///   0 indicates all bytes were processed.
 		/// \details Internally, Put() calls Put2().
 		size_t Put(const byte *inString, size_t length, bool blocking=true)
 			{return Put2(inString, length, 0, blocking);}
@@ -1634,17 +1667,25 @@ public:
 		/// \param value the 16-bit value to be processed
 		/// \param order the ByteOrder of the value to be processed.
 		/// \param blocking specifies whether the object should block when processing input
-		/// \return the number of bytes that remain in the block (i.e., bytes not processed). 0 indicates all
-		///   bytes were processed.
+		/// \return the number of bytes that remain in the block (i.e., bytes not processed).
+		///   0 indicates all bytes were processed.
 		size_t PutWord16(word16 value, ByteOrder order=BIG_ENDIAN_ORDER, bool blocking=true);
 
 		/// Input a 32-bit word for processing.
 		/// \param value the 32-bit value to be processed.
 		/// \param order the ByteOrder of the value to be processed.
 		/// \param blocking specifies whether the object should block when processing input.
-		/// \return the number of bytes that remain in the block (i.e., bytes not processed). 0 indicates all
-		///   bytes were processed.
+		/// \return the number of bytes that remain in the block (i.e., bytes not processed).
+		///   0 indicates all bytes were processed.
 		size_t PutWord32(word32 value, ByteOrder order=BIG_ENDIAN_ORDER, bool blocking=true);
+
+		/// Input a 64-bit word for processing.
+		/// \param value the 64-bit value to be processed.
+		/// \param order the ByteOrder of the value to be processed.
+		/// \param blocking specifies whether the object should block when processing input.
+		/// \return the number of bytes that remain in the block (i.e., bytes not processed).
+		///   0 indicates all bytes were processed.
+		size_t PutWord64(word64 value, ByteOrder order=BIG_ENDIAN_ORDER, bool blocking=true);
 
 		/// \brief Request space which can be written into by the caller
 		/// \param size the requested size of the buffer
@@ -1781,18 +1822,23 @@ public:
 
 		/// \brief Flush buffered input and/or output, with signal propagation
 		/// \param hardFlush is used to indicate whether all data should be flushed
-		/// \param propagation the number of attached transformations the Flush() signal should be passed
-		/// \param blocking specifies whether the object should block when processing input
-		/// \details propagation count includes this object. Setting propagation to <tt>1</tt> means this
-		///   object only. Setting propagation to <tt>-1</tt> means unlimited propagation.
-		/// \note Hard flushes must be used with care. It means try to process and output everything, even if
-		///   there may not be enough data to complete the action. For example, hard flushing a HexDecoder
-		///   would cause an error if you do it after inputing an odd number of hex encoded characters.
-		/// \note For some types of filters, like  ZlibDecompressor, hard flushes can only
-		///   be done at "synchronization points". These synchronization points are positions in the data
-		///   stream that are created by hard flushes on the corresponding reverse filters, in this
-		///   example ZlibCompressor. This is useful when zlib compressed data is moved across a
-		///   network in packets and compression state is preserved across packets, as in the SSH2 protocol.
+		/// \param propagation the number of attached transformations the Flush()
+		///  signal should be passed
+		/// \param blocking specifies whether the object should block when processing
+		///  input
+		/// \details propagation count includes this object. Setting propagation to
+		///  <tt>1</tt> means this object only. Setting propagation to <tt>-1</tt>
+		///  means unlimited propagation.
+		/// \note Hard flushes must be used with care. It means try to process and
+		///  output everything, even if there may not be enough data to complete the
+		///  action. For example, hard flushing a HexDecoder would cause an error if
+		///  you do it after inputing an odd number of hex encoded characters.
+		/// \note For some types of filters, like  ZlibDecompressor, hard flushes can
+		///  only be done at "synchronization points". These synchronization points
+		///  are positions in the data stream that are created by hard flushes on the
+		///  corresponding reverse filters, in this example ZlibCompressor. This is
+		///  useful when zlib compressed data is moved across a network in packets
+		///  and compression state is preserved across packets, as in the SSH2 protocol.
 		virtual bool Flush(bool hardFlush, int propagation=-1, bool blocking=true);
 
 		/// \brief Marks the end of a series of messages, with signal propagation
@@ -1856,7 +1902,7 @@ public:
 		/// \param peekMax the number of bytes to Peek
 		/// \return the number of bytes read during the call.
 		/// \details Peek does not remove bytes from the object. Use the return value of
-		///     Get() to detect short reads.
+		///     Peek() to detect short reads.
 		virtual size_t Peek(byte *outString, size_t peekMax) const;
 
 		/// \brief Retrieve a 16-bit word
@@ -1870,15 +1916,23 @@ public:
 		/// \param value the 32-bit value to be retrieved
 		/// \param order the ByteOrder of the value to be processed.
 		/// \return the number of bytes consumed during the call.
-		/// \details Use the return value of GetWord16() to detect short reads.
+		/// \details Use the return value of GetWord32() to detect short reads.
 		size_t GetWord32(word32 &value, ByteOrder order=BIG_ENDIAN_ORDER);
+
+		/// \brief Retrieve a 64-bit word
+		/// \param value the 64-bit value to be retrieved
+		/// \param order the ByteOrder of the value to be processed.
+		/// \return the number of bytes consumed during the call.
+		/// \details Use the return value of GetWord64() to detect short reads.
+		/// \since Crypto++ 8.3
+		size_t GetWord64(word64 &value, ByteOrder order=BIG_ENDIAN_ORDER);
 
 		/// \brief Peek a 16-bit word
 		/// \param value the 16-bit value to be retrieved
 		/// \param order the ByteOrder of the value to be processed.
 		/// \return the number of bytes consumed during the call.
 		/// \details Peek does not consume bytes in the stream. Use the return value
-		///    of GetWord16() to detect short reads.
+		///    of PeekWord16() to detect short reads.
 		size_t PeekWord16(word16 &value, ByteOrder order=BIG_ENDIAN_ORDER) const;
 
 		/// \brief Peek a 32-bit word
@@ -1886,8 +1940,17 @@ public:
 		/// \param order the ByteOrder of the value to be processed.
 		/// \return the number of bytes consumed during the call.
 		/// \details Peek does not consume bytes in the stream. Use the return value
-		///    of GetWord16() to detect short reads.
+		///    of PeekWord32() to detect short reads.
 		size_t PeekWord32(word32 &value, ByteOrder order=BIG_ENDIAN_ORDER) const;
+
+		/// \brief Peek a 64-bit word
+		/// \param value the 64-bit value to be retrieved
+		/// \param order the ByteOrder of the value to be processed.
+		/// \return the number of bytes consumed during the call.
+		/// \details Peek does not consume bytes in the stream. Use the return value
+		///    of PeekWord64() to detect short reads.
+		/// \since Crypto++ 8.3
+		size_t PeekWord64(word64 &value, ByteOrder order=BIG_ENDIAN_ORDER) const;
 
 		/// move transferMax bytes of the buffered output to target as input
 
@@ -2035,7 +2098,7 @@ public:
 		/// \param channel the channel on which the transfer should occur
 		/// \param blocking specifies whether the object should block when processing input
 		/// \return the number of bytes that remain in the transfer block (i.e., bytes not transferred)
-		/// \details TransferTo() removes bytes from this object and moves them to the destination.
+		/// \details TransferTo2() removes bytes from this object and moves them to the destination.
 		///   Transfer begins at the index position in the current stream, and not from an absolute
 		///   position in the stream.
 		/// \details byteCount is an \a IN and \a OUT parameter. When the call is made,
@@ -2143,6 +2206,15 @@ public:
 		/// \return 0 indicates all bytes were processed during the call. Non-0 indicates the
 		///   number of bytes that were not processed.
 		size_t ChannelPutWord32(const std::string &channel, word32 value, ByteOrder order=BIG_ENDIAN_ORDER, bool blocking=true);
+
+		/// \brief Input a 64-bit word for processing on a channel.
+		/// \param channel the channel to process the data.
+		/// \param value the 64-bit value to be processed.
+		/// \param order the ByteOrder of the value to be processed.
+		/// \param blocking specifies whether the object should block when processing input.
+		/// \return 0 indicates all bytes were processed during the call. Non-0 indicates the
+		///   number of bytes that were not processed.
+		size_t ChannelPutWord64(const std::string &channel, word64 value, ByteOrder order=BIG_ENDIAN_ORDER, bool blocking=true);
 
 		/// \brief Signal the end of a message
 		/// \param channel the channel to process the data.
@@ -2272,14 +2344,22 @@ protected:
 		{return propagation != 0 ? propagation - 1 : 0;}
 
 private:
-	byte m_buf[4];	// for ChannelPutWord16 and ChannelPutWord32, to ensure buffer isn't deallocated before non-blocking operation completes
+	// for ChannelPutWord16, ChannelPutWord32 and ChannelPutWord64,
+	// to ensure the buffer isn't deallocated before non-blocking
+	// operation completes
+	byte m_buf[8];
 };
 
 /// \brief An input discarding BufferedTransformation
 /// \return a reference to a BufferedTransformation object that discards all input
 CRYPTOPP_DLL BufferedTransformation & TheBitBucket();
 
-/// \brief Interface for crypto material, such as public and private keys, and crypto parameters
+/// \brief Interface for crypto material
+/// \details CryptoMaterial() is an interface for crypto material, such as
+///  public keys, private keys and crypto parameters. Derived classes generally
+///  do not offer public methods such as GenerateRandom() and
+///  GenerateRandomWithKeySize().
+/// \sa GeneratableCryptoMaterial()
 class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE CryptoMaterial : public NameValuePairs
 {
 public:
@@ -2395,7 +2475,11 @@ public:
 #endif
 };
 
-/// \brief Interface for generatable crypto material, such as private keys and crypto parameters
+/// \brief Interface for crypto material
+/// \details GeneratableCryptoMaterial() is an interface for crypto material,
+///  such as private keys and crypto parameters. Derived classes offer public
+///  methods such as GenerateRandom() and GenerateRandomWithKeySize().
+/// \sa CryptoMaterial()
 class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE GeneratableCryptoMaterial : virtual public CryptoMaterial
 {
 public:
@@ -2436,10 +2520,15 @@ class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE CryptoParameters : public GeneratableCrypt
 {
 };
 
+/// \brief Interface for certificates
+class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE Certificate : virtual public CryptoMaterial
+{
+};
+
 /// \brief Interface for asymmetric algorithms
 /// \details BERDecode() and DEREncode() were removed under Issue 569
-///   and Commit 9b174e84de7a. Programs should use <tt>AccessMaterial().Load(bt)</tt>
-///   or <tt>AccessMaterial().Save(bt)</tt> instead.
+///  and Commit 9b174e84de7a. Programs should use <tt>AccessMaterial().Load(bt)</tt>
+///  or <tt>AccessMaterial().Save(bt)</tt> instead.
 /// \sa <A HREF="https://github.com/weidai11/cryptopp/issues/569">Issue 569</A>
 class CRYPTOPP_DLL CRYPTOPP_NO_VTABLE AsymmetricAlgorithm : public Algorithm
 {

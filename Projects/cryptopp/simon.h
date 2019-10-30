@@ -109,6 +109,11 @@ public:
 
         std::string AlgorithmProvider() const;
 
+        /// \brief Provides input and output data alignment for optimal performance.
+        /// \return the input data alignment that provides optimal performance
+        /// \sa GetAlignment() and OptimalBlockSize()
+        unsigned int OptimalDataAlignment() const;
+
     protected:
         void UncheckedSetKey(const byte *userKey, unsigned int keyLength, const NameValuePairs &params);
     };
@@ -126,7 +131,7 @@ public:
 #endif
     };
 
-    /// \brief Encryption transformation
+    /// \brief Decryption transformation
     /// \details Dec provides implementation for decryption transformation. All key
     ///   sizes are supported.
     /// \since Crypto++ 6.0
@@ -172,6 +177,11 @@ public:
 
         std::string AlgorithmProvider() const;
 
+        /// \brief Provides input and output data alignment for optimal performance.
+        /// \return the input data alignment that provides optimal performance
+        /// \sa GetAlignment() and OptimalBlockSize()
+        unsigned int OptimalDataAlignment() const;
+
     protected:
         void UncheckedSetKey(const byte *userKey, unsigned int keyLength, const NameValuePairs &params);
     };
@@ -189,7 +199,7 @@ public:
 #endif
     };
 
-    /// \brief Encryption transformation
+    /// \brief Decryption transformation
     /// \details Dec provides implementation for decryption transformation. All key
     ///   sizes are supported.
     /// \since Crypto++ 6.0

@@ -14,6 +14,12 @@ TMPDIR ?= /tmp
 TOUT ?= a.out
 TOUT := $(strip $(TOUT))
 
+# Allow override for the cryptest.exe recipe. Change to
+# ./libcryptopp.so or ./libcryptopp.dylib to suit your
+# taste. https://github.com/weidai11/cryptopp/issues/866
+LINK_LIBRARY ?= libcryptopp.a
+LINK_LIBRARY_PATH ?= ./
+
 # Command and arguments
 AR ?= ar
 ARFLAGS ?= -cr # ar needs the dash on OpenBSD
@@ -23,6 +29,7 @@ CP ?= cp
 MV ?= mv
 RM ?= rm -f
 GREP ?= grep
+SED ?= sed
 CHMOD ?= chmod
 MKDIR ?= mkdir -p
 
@@ -33,11 +40,17 @@ LDCONF ?= /sbin/ldconfig -n
 ifneq ($(wildcard /usr/xpg4/bin/grep),)
   GREP := /usr/xpg4/bin/grep
 endif
+ifneq ($(wildcard /usr/xpg4/bin/sed),)
+  SED := /usr/xpg4/bin/sed
+endif
 
-# Attempt to determine target machine, fallback to "this" machine.
-#   The target machine is the one the package runs on. Most people
-#   call this the "target", but not Autotools.
-HOSTX := $(shell $(CXX) $(CXXFLAGS) -dumpmachine 2>/dev/null | cut -f 1 -d '-')
+# Yet another Clang hack. I think the LLVM devs are making the shit up
+# as they go. Also see https://github.com/weidai11/cryptopp/issues/831.
+MACHINEX := $(shell $(CXX) $(CXXFLAGS) -dumpmachine 2>/dev/null)
+ifeq ($(MACHINEX),armv8l-unknown-linux-gnueabihf)
+  MACHINEX := armv7l-unknown-linux-gnueabihf
+endif
+HOSTX := $(shell echo $(MACHINEX) | cut -f 1 -d '-')
 ifeq ($(HOSTX),)
   HOSTX := $(shell uname -m 2>/dev/null)
 endif
@@ -112,9 +125,10 @@ else ifeq ($(findstring distclean,$(MAKECMDGOALS)),trim)
   DETECT_FEATURES := 0
 endif
 
-# Strip out -Wall, -Wextra and friends for feature testing
+# Strip out -Wall, -Wextra and friends for feature testing. FORTIFY_SOURCE is removed
+# because it requires -O1 or higher, but we use -O0 to tame the optimizer.
 ifeq ($(DETECT_FEATURES),1)
-  TCXXFLAGS := $(filter-out -Wall -Wextra -Werror% -Wunused -Wconversion -Wp%, $(CXXFLAGS))
+  TCXXFLAGS := $(filter-out -D_FORTIFY_SOURCE=% -Wall -Wextra -Werror% -Wunused -Wconversion -Wp%, $(CXXFLAGS))
   ifneq ($(strip $(TCXXFLAGS)),)
     $(info Using testing flags: $(TCXXFLAGS))
   endif
@@ -157,6 +171,11 @@ else
   ZOPT = -O0
 endif
 
+# Fix CXX on Cygwin 1.1.4
+ifeq ($(CXX),gcc)
+CXX := g++
+endif
+
 # On ARM we may compile aes_armv4.S though the CC compiler
 ifeq ($(GCC_COMPILER),1)
   CC=gcc
@@ -183,18 +202,10 @@ ifeq ($(INCLUDEDIR),)
 INCLUDEDIR := $(PREFIX)/include
 endif
 
-# Fix CXX on Cygwin 1.1.4
-ifeq ($(CXX),gcc)
-CXX := g++
-endif
-
 # We honor ARFLAGS, but the "v" option used by default causes a noisy make
 ifeq ($(ARFLAGS),rv)
 ARFLAGS = r
 endif
-
-# Clang integrated assembler will be used with -Wa,-q
-CLANG_INTEGRATED_ASSEMBLER ?= 0
 
 # Original MinGW targets Win2k by default, but lacks proper Win2k support
 # if target Windows version is not specified, use Windows XP instead
@@ -269,9 +280,7 @@ ifeq ($(DETECT_FEATURES),1)
     KECCAK_FLAG = $(SSSE3_FLAG)
     LEA_FLAG = $(SSSE3_FLAG)
     SIMECK_FLAG = $(SSSE3_FLAG)
-    SIMON64_FLAG = $(SSSE3_FLAG)
     SIMON128_FLAG = $(SSSE3_FLAG)
-    SPECK64_FLAG = $(SSSE3_FLAG)
     SPECK128_FLAG = $(SSSE3_FLAG)
     SUN_LDFLAGS += $(SSSE3_FLAG)
   else
@@ -396,6 +405,18 @@ ifeq ($(DETECT_FEATURES),1)
     endif
   endif
 
+  # Most Clang cannot handle mixed asm with positional arguments, where the
+  # body is Intel style with no prefix and the templates are AT&T style.
+  # Also see https://bugs.llvm.org/show_bug.cgi?id=39895 .
+
+  # CRYPTOPP_DISABLE_MIXED_ASM is now being added in config_asm.h for all
+  # Clang compilers. This test will need to be re-enabled if Clang fixes it.
+  #TPROG = TestPrograms/test_asm_mixed.cxx
+  #HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
+  #ifneq ($(strip $(HAVE_OPT)),0)
+  #  CXXFLAGS += -DCRYPTOPP_DISABLE_MIXED_ASM
+  #endif
+
 # DETECT_FEATURES
 endif
 
@@ -419,26 +440,15 @@ ifeq ($(findstring -DCRYPTOPP_DISABLE_ASM,$(CXXFLAGS)),)
   endif
 endif
 
-# Most Clang cannot handle mixed asm with positional arguments, where the
-# body is Intel style with no prefix and the templates are AT&T style.
-# Also see https://bugs.llvm.org/show_bug.cgi?id=39895 .
-TPROG = TestPrograms/test_mixed_asm.cxx
-HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
-ifneq ($(strip $(HAVE_OPT)),0)
-  CXXFLAGS += -DCRYPTOPP_DISABLE_MIXED_ASM
-endif
-
 # IS_X86, IS_X32 and IS_X64
 endif
 
 ###########################################################
-#####            ARM A-32, Aach64 and NEON            #####
+#####                ARM A-32 and NEON                #####
 ###########################################################
 
-ifneq ($(IS_ARM32)$(IS_ARMV8),00)
-ifeq ($(DETECT_FEATURES),1)
-
 ifneq ($(IS_ARM32),0)
+ifeq ($(DETECT_FEATURES),1)
 
   TPROG = TestPrograms/test_arm_neon.cxx
   TOPT = -march=armv7-a -mfpu=neon
@@ -465,18 +475,25 @@ ifneq ($(IS_ARM32),0)
     CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
   endif
 
+# DETECT_FEATURES
+endif
 # IS_ARM32
 endif
 
-ifeq ($(IS_ARMV8),1)
+###########################################################
+#####                Aach32 and Aarch64               #####
+###########################################################
+
+ifneq ($(IS_ARMV8),0)
+ifeq ($(DETECT_FEATURES),1)
 
   TPROG = TestPrograms/test_arm_acle.cxx
   TOPT = -march=armv8-a
   HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
   ifeq ($(strip $(HAVE_OPT)),0)
-	ACLE_FLAG += -DCRYPTOPP_ARM_ACLE_AVAILABLE=1
+	ACLE_FLAG += -DCRYPTOPP_ARM_ACLE_HEADER=1
   else
-	CXXFLAGS += -DCRYPTOPP_ARM_ACLE_AVAILABLE=0
+	CXXFLAGS += -DCRYPTOPP_ARM_ACLE_HEADER=0
   endif
 
   TPROG = TestPrograms/test_arm_asimd.cxx
@@ -530,7 +547,7 @@ ifeq ($(IS_ARMV8),1)
       CXXFLAGS += -DCRYPTOPP_ARM_PMULL_AVAILABLE=0
     endif
 
-    TPROG = TestPrograms/test_arm_sha.cxx
+    TPROG = TestPrograms/test_arm_sha1.cxx
     TOPT = -march=armv8-a+crypto
     HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ACLE_FLAG) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
     ifeq ($(strip $(HAVE_OPT)),0)
@@ -557,13 +574,9 @@ ifeq ($(IS_ARMV8),1)
   # ASIMD_FLAG
   endif
 
-# IS_ARMV8
-endif
-
 # DETECT_FEATURES
 endif
-
-# IS_ARM32, IS_ARMV8
+# IS_ARMV8
 endif
 
 ###########################################################
@@ -580,7 +593,9 @@ ifeq ($(DETECT_FEATURES),1)
   ifeq ($(XLC_COMPILER),1)
     POWER9_FLAG = -qarch=pwr9 -qaltivec
     POWER8_FLAG = -qarch=pwr8 -qaltivec
-    POWER7_FLAG = -qarch=pwr7 -qaltivec
+    POWER7_VSX_FLAG = -qarch=pwr7 -qvsx -qaltivec
+    POWER7_PWR_FLAG = -qarch=pwr7 -qaltivec
+    POWER7_ALT_FLAG = -qaltivec
     POWER6_FLAG = -qarch=pwr6 -qaltivec
     POWER5_FLAG = -qarch=pwr5 -qaltivec
     POWER4_FLAG = -qarch=pwr4 -qaltivec
@@ -588,7 +603,9 @@ ifeq ($(DETECT_FEATURES),1)
   else
     POWER9_FLAG = -mcpu=power9 -maltivec
     POWER8_FLAG = -mcpu=power8 -maltivec
-    POWER7_FLAG = -mcpu=power7 -maltivec
+    POWER7_VSX_FLAG = -mcpu=power7 -mvsx -maltivec
+    POWER7_PWR_FLAG = -mcpu=power7 -maltivec
+    POWER7_ALT_FLAG = -maltivec
     ALTIVEC_FLAG = -maltivec
   endif
 
@@ -603,7 +620,7 @@ ifeq ($(DETECT_FEATURES),1)
   #endif
 
   #####################################################################
-  # Looking for a POWER8 option
+  # Looking for a POWER9 option
 
   TPROG = TestPrograms/test_ppc_power9.cxx
   TOPT = $(POWER9_FLAG)
@@ -614,16 +631,15 @@ ifeq ($(DETECT_FEATURES),1)
     POWER9_FLAG =
   endif
 
+  #####################################################################
+  # Looking for a POWER8 option
+
   TPROG = TestPrograms/test_ppc_power8.cxx
   TOPT = $(POWER8_FLAG)
   HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
   ifeq ($(strip $(HAVE_OPT)),0)
     AES_FLAG = $(POWER8_FLAG)
-    ARIA_FLAG = $(POWER8_FLAG)
     BLAKE2B_FLAG = $(POWER8_FLAG)
-    BLAKE2S_FLAG = $(POWER8_FLAG)
-    CHACHA_FLAG = $(POWER8_FLAG)
-    CHAM_FLAG = $(POWER8_FLAG)
     CRC_FLAG = $(POWER8_FLAG)
     GCM_FLAG = $(POWER8_FLAG)
     GF2N_FLAG = $(POWER8_FLAG)
@@ -631,8 +647,6 @@ ifeq ($(DETECT_FEATURES),1)
     SHA_FLAG = $(POWER8_FLAG)
     SHACAL2_FLAG = $(POWER8_FLAG)
     SIMECK_FLAG = $(POWER8_FLAG)
-    SIMON64_FLAG = $(POWER8_FLAG)
-    SPECK64_FLAG = $(POWER8_FLAG)
     SIMON128_FLAG = $(POWER8_FLAG)
     SPECK128_FLAG = $(POWER8_FLAG)
   else
@@ -642,11 +656,37 @@ ifeq ($(DETECT_FEATURES),1)
   #####################################################################
   # Looking for a POWER7 option
 
+  # GCC needs -mvsx for Power7 to enable 64-bit vector elements.
+  # XLC provides 64-bit vector elements without an option.
+
   TPROG = TestPrograms/test_ppc_power7.cxx
-  TOPT = $(POWER7_FLAG)
+  TOPT = $(POWER7_VSX_FLAG)
   HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
-  ifneq ($(strip $(HAVE_OPT)),0)
-    POWER7_FLAG =
+  ifeq ($(strip $(HAVE_OPT)),0)
+    POWER7_FLAG = $(POWER7_VSX_FLAG)
+  else
+    TPROG = TestPrograms/test_ppc_power7.cxx
+    TOPT = $(POWER7_PWR_FLAG)
+    HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
+    ifeq ($(strip $(HAVE_OPT)),0)
+      POWER7_FLAG = $(POWER7_PWR_FLAG)
+	else
+      TPROG = TestPrograms/test_ppc_power7.cxx
+      TOPT = $(POWER7_ALT_FLAG)
+      HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
+      ifeq ($(strip $(HAVE_OPT)),0)
+        POWER7_FLAG = $(POWER7_ALT_FLAG)
+      else
+        POWER7_FLAG =
+      endif
+    endif
+  endif
+
+  ifneq ($(POWER7_FLAG),)
+    BLAKE2S_FLAG = $(POWER7_FLAG)
+    CHACHA_FLAG = $(POWER7_FLAG)
+    SIMON64_FLAG = $(POWER7_FLAG)
+    SPECK64_FLAG = $(POWER7_FLAG)
   endif
 
   #####################################################################
@@ -688,13 +728,21 @@ ifeq ($(DETECT_FEATURES),1)
   #####################################################################
   # Fixups for algorithms that can drop to a lower ISA, if needed
 
-  # Drop to Power4 if Power8 not available
-  ifeq ($(POWER8_FLAG),)
-    ifneq ($(ALTIVEC_FLAG),)
+  # Drop to Altivec if higher Power is not available
+  ifneq ($(ALTIVEC_FLAG),)
+    ifeq ($(BLAKE2S_FLAG),)
       BLAKE2S_FLAG = $(ALTIVEC_FLAG)
+    endif
+    ifeq ($(CHACHA_FLAG),)
       CHACHA_FLAG = $(ALTIVEC_FLAG)
+    endif
+    ifeq ($(GCM_FLAG),)
       GCM_FLAG = $(ALTIVEC_FLAG)
+    endif
+    ifeq ($(SIMON64_FLAG),)
       SIMON64_FLAG = $(ALTIVEC_FLAG)
+    endif
+    ifeq ($(SPECK64_FLAG),)
       SPECK64_FLAG = $(ALTIVEC_FLAG)
     endif
   endif
@@ -704,7 +752,7 @@ ifeq ($(DETECT_FEATURES),1)
 
   ifeq ($(ALTIVEC_FLAG),)
     CXXFLAGS += -DCRYPTOPP_DISABLE_ALTIVEC
-  else ifeq ($(POWER8_FLAG)$(POWER7_FLAG),)
+  else ifeq ($(POWER7_FLAG),)
     CXXFLAGS += -DCRYPTOPP_DISABLE_POWER7
   else ifeq ($(POWER8_FLAG),)
     CXXFLAGS += -DCRYPTOPP_DISABLE_POWER8
@@ -858,6 +906,15 @@ ifeq ($(findstring native,$(MAKECMDGOALS)),native)
     NATIVE_OPT = -march=native
   endif # NATIVE_OPT
 
+  # And tune
+  ifeq ($(NATIVE_OPT),)
+    TOPT = -mtune=native
+    HAVE_OPT = $(shell $(CXX) $(TCXXFLAGS) $(ZOPT) $(TOPT) $(TPROG) -o $(TOUT) 2>&1 | tr ' ' '\n' | wc -l)
+    ifeq ($(strip $(HAVE_OPT)),0)
+      NATIVE_OPT = -mtune=native
+    endif # NATIVE_OPT
+  endif
+
   # Try SunCC next
   ifeq ($(NATIVE_OPT),)
     TOPT = -native
@@ -945,9 +1002,9 @@ ifneq ($(filter valgrind,$(MAKECMDGOALS)),)
   CXXFLAGS := $(CXXFLAGS:-g%=-g3)
   CXXFLAGS := $(CXXFLAGS:-O%=-O1)
   CXXFLAGS := $(CXXFLAGS:-xO%=-xO1)
-  ifeq ($(findstring -DCRYPTOPP_VALGRIND,$(CXXFLAGS)),)
-    CXXFLAGS += -DCRYPTOPP_VALGRIND
-  endif # -DCRYPTOPP_VALGRIND
+  ifeq ($(findstring -DCRYPTOPP_COVERAGE,$(CXXFLAGS)),)
+    CXXFLAGS += -DCRYPTOPP_COVERAGE
+  endif # -DCRYPTOPP_COVERAGE
 endif # Valgrind
 
 # Debug testing on GNU systems. Triggered by -DDEBUG.
@@ -993,7 +1050,7 @@ ifeq ($(findstring lean,$(MAKECMDGOALS)),lean)
 endif # Dead code stripping
 
 # For Shared Objects, Diff, Dist/Zip rules
-LIB_VER := $(shell $(GREP) "define CRYPTOPP_VERSION" config.h | cut -d" " -f 3)
+LIB_VER := $(shell $(GREP) "define CRYPTOPP_VERSION" config_ver.h | cut -d" " -f 3)
 LIB_MAJOR := $(shell echo $(LIB_VER) | cut -c 1)
 LIB_MINOR := $(shell echo $(LIB_VER) | cut -c 2)
 LIB_PATCH := $(shell echo $(LIB_VER) | cut -c 3)
@@ -1042,7 +1099,7 @@ endif
 ###########################################################
 
 # List cryptlib.cpp first, then cpu.cpp, then integer.cpp to tame C++ static initialization problems.
-SRCS := cryptlib.cpp cpu.cpp integer.cpp $(filter-out cryptlib.cpp cpu.cpp integer.cpp pch.cpp simple.cpp winpipes.cpp cryptlib_bds.cpp,$(sort $(wildcard *.cpp)))
+SRCS := cryptlib.cpp cpu.cpp integer.cpp $(filter-out cryptlib.cpp cpu.cpp integer.cpp pch.cpp simple.cpp,$(sort $(wildcard *.cpp)))
 # For Makefile.am; resource.h is Windows
 INCL := $(filter-out resource.h,$(sort $(wildcard *.h)))
 
@@ -1050,12 +1107,30 @@ ifneq ($(IS_MINGW),0)
 INCL += resource.h
 endif
 
-# Cryptogams AES for ARMv4 and above. We couple to ARMv7.
-# Avoid iOS. It cannot consume the assembly.
-ifeq ($(IS_ARM32),1)
-  CRYPTOGAMS_AES_FLAG = -march=armv7-a
-  CRYPTOGAMS_AES_FLAG += -Wa,--noexecstack
-  SRCS += aes_armv4.S
+# Cryptogams source files. We couple to ARMv7.
+# Limit to Linux. The source files target the GNU assembler.
+# Also see https://www.cryptopp.com/wiki/Cryptogams.
+ifeq ($(IS_ARM32)$(IS_LINUX),11)
+  ifeq ($(CLANG_COMPILER),1)
+    CRYPTOGAMS_ARMV7_FLAG = -march=armv7-a -Wa,--noexecstack
+    CRYPTOGAMS_ARMV7_THUMB_FLAG = -march=armv7-a -mthumb -Wa,--noexecstack
+  else
+    CRYPTOGAMS_ARMV7_FLAG = -march=armv7-a -Wa,--noexecstack
+    CRYPTOGAMS_ARMV7_THUMB_FLAG = -march=armv7-a -Wa,--noexecstack
+  endif
+  SRCS += aes_armv4.S sha1_armv4.S sha256_armv4.S sha512_armv4.S
+endif
+
+# Remove unneeded arch specific files to speed build time.
+ifeq ($(IS_PPC32)$(IS_PPC64),00)
+  SRCS := $(filter-out ppc_%,$(SRCS))
+endif
+ifeq ($(IS_ARM32)$(IS_ARMV8),00)
+  SRCS := $(filter-out arm_%,$(SRCS))
+  SRCS := $(filter-out neon_%,$(SRCS))
+endif
+ifeq ($(IS_X86)$(IS_X32)$(IS_X64),000)
+  SRCS := $(filter-out sse_%,$(SRCS))
 endif
 
 # List cryptlib.cpp first, then cpu.cpp, then integer.cpp to tame C++ static initialization problems.
@@ -1100,10 +1175,6 @@ else
 static: libcryptopp.a
 shared dynamic: libcryptopp.so$(SOLIB_VERSION_SUFFIX)
 endif
-
-.PHONY: dep deps depend
-dep deps depend GNUmakefile.deps:
-	$(CXX) $(strip $(CXXFLAGS) -DCRYPTOPP_DISABLE_ASM) -MM *.cpp > GNUmakefile.deps
 
 # CXXFLAGS are tuned earlier.
 .PHONY: native no-asm asan ubsan
@@ -1206,8 +1277,13 @@ cmake-clean:
 	@-$(RM) -f cryptopp-config.cmake CMakeLists.txt
 	@-$(RM) -rf cmake_build/
 
+.PHONY: android-clean
+android-clean:
+	@-$(RM) -f $(patsubst %_simd.cpp,%_simd.cpp.neon,$(wildcard *_simd.cpp))
+	@-$(RM) -rf obj/
+
 .PHONY: distclean
-distclean: clean autotools-clean cmake-clean
+distclean: clean autotools-clean cmake-clean android-clean
 	-$(RM) adhoc.cpp adhoc.cpp.copied GNUmakefile.deps benchmarks.html cryptest.txt
 	@-$(RM) cryptest-*.txt cryptopp.tgz libcryptopp.pc *.o *.bc *.ii *~
 	@-$(RM) -r cryptlib.lib cryptest.exe *.suo *.sdf *.pdb Win32/ x64/ ipch/
@@ -1270,10 +1346,14 @@ remove uninstall:
 	-$(RM) -r $(DESTDIR)$(INCLUDEDIR)/cryptopp
 	-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.a
 	-$(RM) $(DESTDIR)$(BINDIR)/cryptest.exe
-	@-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.dylib
+ifneq ($(wildcard $(DESTDIR)$(LIBDIR)/libcryptopp.dylib),)
+	-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.dylib
+endif
+ifneq ($(wildcard $(DESTDIR)$(LIBDIR)/libcryptopp.so),)
+	-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.so
+endif
 	@-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.so$(SOLIB_VERSION_SUFFIX)
 	@-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.so$(SOLIB_COMPAT_SUFFIX)
-	@-$(RM) $(DESTDIR)$(LIBDIR)/libcryptopp.so
 	@-$(RM) $(DESTDIR)$(LIBDIR)/pkgconfig/libcryptopp.pc
 	@-$(RM) -r $(DESTDIR)$(DATADIR)/cryptopp
 
@@ -1302,8 +1382,8 @@ endif
 libcryptopp.dylib: $(LIBOBJS)
 	$(CXX) -dynamiclib -o $@ $(strip $(CXXFLAGS)) -install_name "$@" -current_version "$(LIB_MAJOR).$(LIB_MINOR).$(LIB_PATCH)" -compatibility_version "$(LIB_MAJOR).$(LIB_MINOR)" -headerpad_max_install_names $(LDFLAGS) $(LIBOBJS)
 
-cryptest.exe:libcryptopp.a $(TESTOBJS)
-	$(CXX) -o $@ $(strip $(CXXFLAGS)) $(TESTOBJS) ./libcryptopp.a $(LDFLAGS) $(LDLIBS)
+cryptest.exe: $(LINK_LIBRARY) $(TESTOBJS)
+	$(CXX) -o $@ $(strip $(CXXFLAGS)) $(TESTOBJS) $(LINK_LIBRARY_PATH)$(LINK_LIBRARY) $(LDFLAGS) $(LDLIBS)
 
 # Makes it faster to test changes
 nolib: $(OBJS)
@@ -1338,14 +1418,14 @@ libcryptopp.pc:
 	@echo '' >> libcryptopp.pc
 	@echo 'Name: Crypto++' >> libcryptopp.pc
 	@echo 'Description: Crypto++ cryptographic library' >> libcryptopp.pc
-	@echo 'Version: 8.2' >> libcryptopp.pc
+	@echo 'Version: 8.3' >> libcryptopp.pc
 	@echo 'URL: https://cryptopp.com/' >> libcryptopp.pc
 	@echo '' >> libcryptopp.pc
 	@echo 'Cflags: -I$${includedir}' >> libcryptopp.pc
 	@echo 'Libs: -L$${libdir} -lcryptopp' >> libcryptopp.pc
 
 # This recipe prepares the distro files
-TEXT_FILES := *.h *.cpp adhoc.cpp License.txt Readme.txt Install.txt Filelist.txt Doxyfile cryptest* cryptlib* dlltest* cryptdll* *.sln *.s *.S *.vcxproj *.filters cryptopp.rc TestVectors/*.txt TestData/*.dat TestPrograms/*.cxx TestScripts/*.sh TestScripts/*.cmd
+TEXT_FILES := *.h *.cpp License.txt Readme.txt Install.txt Filelist.txt Doxyfile cryptest* cryptlib* dlltest* cryptdll* *.sln *.vcxproj *.filters cryptopp.rc TestVectors/*.txt TestData/*.dat TestPrograms/*.cxx TestScripts/*.sh TestScripts/*.cmd
 EXEC_FILES := GNUmakefile GNUmakefile-cross TestData/ TestVectors/ TestScripts/ TestPrograms/
 
 ifeq ($(wildcard Filelist.txt),Filelist.txt)
@@ -1355,25 +1435,25 @@ endif
 .PHONY: trim
 trim:
 ifneq ($(IS_DARWIN),0)
-	sed -i '' -e's/[[:space:]]*$$//' *.supp *.txt *.sh .*.yml *.h *.cpp *.asm *.s *.S
-	sed -i '' -e's/[[:space:]]*$$//' *.sln *.vcxproj *.filters GNUmakefile GNUmakefile-cross
-	sed -i '' -e's/[[:space:]]*$$//' TestData/*.dat TestVectors/*.txt TestPrograms/*.cxx TestScripts/*.*
+	$(SED) -i '' -e's/[[:space:]]*$$//' *.supp *.txt .*.yml *.h *.cpp *.asm *.S
+	$(SED) -i '' -e's/[[:space:]]*$$//' *.sln *.vcxproj *.filters GNUmakefile GNUmakefile-cross
+	$(SED) -i '' -e's/[[:space:]]*$$//' TestData/*.dat TestVectors/*.txt TestPrograms/*.cxx TestScripts/*.*
 	make convert
 else
-	sed -i -e's/[[:space:]]*$$//' *.supp *.txt *.sh .*.yml *.h *.cpp *.asm *.s *.S
-	sed -i -e's/[[:space:]]*$$//' *.sln *.vcxproj *.filters GNUmakefile GNUmakefile-cross
-	sed -i -e's/[[:space:]]*$$//' TestData/*.dat TestVectors/*.txt TestPrograms/*.cxx TestScripts/*.*
+	$(SED) -i -e's/[[:space:]]*$$//' *.supp *.txt .*.yml *.h *.cpp *.asm *.S
+	$(SED) -i -e's/[[:space:]]*$$//' *.sln *.vcxproj *.filters GNUmakefile GNUmakefile-cross
+	$(SED) -i -e's/[[:space:]]*$$//' TestData/*.dat TestVectors/*.txt TestPrograms/*.cxx TestScripts/*.*
 	make convert
 endif
 
 .PHONY: convert
 convert:
 	@-$(CHMOD) 0700 TestVectors/ TestData/ TestPrograms/ TestScripts/
-	@-$(CHMOD) 0600 $(TEXT_FILES) *.supp .*.yml *.asm *.s *.zip TestVectors/*.txt TestData/*.dat TestPrograms/*.cxx TestScripts/*.*
-	@-$(CHMOD) 0700 $(EXEC_FILES) *.sh *.cmd TestScripts/*.sh TestScripts/*.cmd
-	@-$(CHMOD) 0700 *.cmd *.sh GNUmakefile GNUmakefile-cross TestScripts/*.sh
-	-unix2dos --keepdate --quiet $(TEXT_FILES) .*.yml *.asm *.cmd TestScripts/*.*
-	-dos2unix --keepdate --quiet GNUmakefile* *.supp *.s *.S *.sh *.mapfile TestScripts/*.sh
+	@-$(CHMOD) 0600 $(TEXT_FILES) *.supp .*.yml *.asm *.zip TestVectors/*.txt TestData/*.dat TestPrograms/*.cxx TestScripts/*.*
+	@-$(CHMOD) 0700 $(EXEC_FILES) TestScripts/*.sh TestScripts/*.cmd
+	@-$(CHMOD) 0700 GNUmakefile GNUmakefile-cross TestScripts/*.sh
+	-unix2dos --keepdate --quiet $(TEXT_FILES) .*.yml *.asm TestScripts/*.*
+	-dos2unix --keepdate --quiet GNUmakefile* *.supp *.mapfile TestScripts/*.sh
 ifneq ($(IS_DARWIN),0)
 	@-xattr -c *
 endif
@@ -1417,9 +1497,9 @@ ifeq ($(wildcard GNUmakefile.deps),GNUmakefile.deps)
 -include GNUmakefile.deps
 endif # Dependencies
 
-# Cryptogams ARM asm implementation.
+# Cryptogams ARM asm implementation. AES needs -mthumb for Clang
 aes_armv4.o : aes_armv4.S
-	$(CC) $(strip $(CXXFLAGS) $(CRYPTOGAMS_AES_FLAG) -c) $<
+	$(CXX) $(strip $(CXXFLAGS) $(CRYPTOGAMS_ARMV7_THUMB_FLAG) -c) $<
 
 # SSSE3 or NEON available
 aria_simd.o : aria_simd.cpp
@@ -1500,6 +1580,18 @@ rijndael_simd.o : rijndael_simd.cpp
 # SSE4.2/SHA-NI or ARMv8a available
 sha_simd.o : sha_simd.cpp
 	$(CXX) $(strip $(CXXFLAGS) $(SHA_FLAG) -c) $<
+
+# Cryptogams SHA1 asm implementation.
+sha1_armv4.o : sha1_armv4.S
+	$(CXX) $(strip $(CXXFLAGS) $(CRYPTOGAMS_ARMV7_FLAG) -c) $<
+
+# Cryptogams SHA256 asm implementation.
+sha256_armv4.o : sha256_armv4.S
+	$(CXX) $(strip $(CXXFLAGS) $(CRYPTOGAMS_ARMV7_FLAG) -c) $<
+
+# Cryptogams SHA512 asm implementation.
+sha512_armv4.o : sha512_armv4.S
+	$(CXX) $(strip $(CXXFLAGS) $(CRYPTOGAMS_ARMV7_FLAG) -c) $<
 
 sha3_simd.o : sha3_simd.cpp
 	$(CXX) $(strip $(CXXFLAGS) $(SHA3_FLAG) -c) $<
@@ -1596,3 +1688,8 @@ ifeq ($(HAS_SOLIB_VERSION),1)
 	$(info WARNING: to run 'ldconfig' to update the shared-object library cache.)
 	$(info )
 endif
+
+.PHONY: dep deps depend
+dep deps depend GNUmakefile.deps:
+	$(CXX) $(strip $(CXXFLAGS) -DCRYPTOPP_DISABLE_ASM) -MM *.cpp > GNUmakefile.deps
+
