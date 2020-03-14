@@ -1,2 +1,2 @@
 add_subdirectory(cryptopp)
-add_subdirectory(gtac_hashing)
+add_subdirectory(mod_hashing)
